@@ -196,3 +196,31 @@ The project uses lightweight validation appropriate for the assignment:
     Ollama connection failures produce a readable error.
     The interactive loop continues after invalid input.
     quit exits the application cleanly.
+
+FastAPI RAG API
+
+The RAG pipeline is also available as a FastAPI service with Swagger UI for testing.
+Endpoints
+
+    POST /ask — Ask a question and receive a grounded answer with sources, confidence, and retrieved chunk count.
+    POST /ingest — Ingest documents from the docs/ directory into ChromaDB.
+    GET /stats — Return the current document count and Ollama model.
+    GET /health — Check ChromaDB and Ollama availability.
+
+## Run the API
+
+uvicorn my_rag_api:app --reload
+
+Open Swagger UI at:
+
+http://127.0.0.1:8000/docs
+
+## API Features
+
+    Pydantic request and response validation
+    CORS middleware for frontend connectivity
+    Distance-based retrieval and confidence levels
+    Structured JSON responses
+    422 validation errors for invalid questions
+    503 responses when Ollama is unavailable or documents have not been ingested
+    Automated API tests with Pytest
