@@ -13,6 +13,7 @@ from my_rag import (
     SYSTEM_PROMPT,
 )
 
+# FastAPI application entry point - Docker cache test
 
 app = FastAPI(
     title="PEP RAG API",

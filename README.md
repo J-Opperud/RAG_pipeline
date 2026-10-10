@@ -224,3 +224,33 @@ http://127.0.0.1:8000/docs
     422 validation errors for invalid questions
     503 responses when Ollama is unavailable or documents have not been ingested
     Automated API tests with Pytest
+
+### Docker
+
+The image uses Python 3.11 slim and installs dependencies from requirements.txt. Docker layer caching allows dependency installation to be reused when application code changes.
+
+## Run the API
+
+Start the container and connect it to Ollama running on the host:
+
+docker run --rm \
+  --name my-rag-api-container \
+  -p 8000:8000 \
+  -e OLLAMA_HOST=http://host.docker.internal:11434 \
+  my-rag-api
+
+Ensure Ollama is running and the llama3.2:latest model is available.
+
+## Access the API
+
+Open Swagger UI in your browser:
+
+http://localhost:8000/docs
+
+
+## Notes
+
+    .dockerignore excludes Python caches, virtual environments, Git files, environment files, and local ChromaDB data from the build context.
+    ChromaDB data persistence depends on the application's configuration and container storage setup.
+    Docker layer caching keeps dependency installation fast when requirements.txt remains unchanged.
+
