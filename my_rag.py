@@ -1,15 +1,17 @@
 import chromadb
 import ollama
+import os
 from pathlib import Path
 
 # Application configuration
 DOCS_DIR = Path("docs")
 DB_PATH = "chroma_db"
 COLLECTION_NAME = "pep_documents"
-MODEL_NAME = "llama3.2:latest"
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+MODEL_NAME = os.getenv("MODEL_NAME", "llama3.2:latest")
 TOP_K = 3
 DISTANCE_THRESHOLD = 1.0
-
+ollama_client = ollama.Client(host=OLLAMA_URL)
 
 def load_document(path: Path) -> str:
     """Read a UTF-8 text document from disk."""
@@ -270,7 +272,7 @@ def generate_answer(
     prompt = build_rag_prompt(question, retrieved_chunks)
 
     try:
-        response_stream = ollama.chat(
+        response_stream = ollama_client.chat(
             model=MODEL_NAME,
             messages=[
                 {

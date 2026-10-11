@@ -1,8 +1,9 @@
 from fastapi import FastAPI, HTTPException
+
 from fastapi.middleware.cors import CORSMiddleware
+
 from pydantic import BaseModel, Field, field_validator
 
-import ollama
 
 from my_rag import (
     MODEL_NAME,
@@ -11,7 +12,9 @@ from my_rag import (
     retrieve,
     build_rag_prompt,
     SYSTEM_PROMPT,
+    ollama_client,
 )
+
 
 # FastAPI application entry point - Docker cache test
 
@@ -117,7 +120,7 @@ def generate_api_answer(
     )
 
     try:
-        response_stream = ollama.chat(
+        response_stream = ollama_client.chat(
             model=MODEL_NAME,
             messages=[
                 {
@@ -150,9 +153,19 @@ def generate_api_answer(
     return "".join(answer_parts).strip()
 
 
+@app.get("/stats", response_model=StatsResponse)
+def get_stats():
+    """Return basic information about the RAG collection."""
+    collection = get_rag_collection()
+
+    return StatsResponse(
+        document_count=collection.count(),
+        model=MODEL_NAME,
+    )
+
 @app.get("/health", response_model=HealthResponse)
 def health_check():
-    """Check whether ChromaDB and Ollama are accessible."""
+    """Check whether the API dependencies are available."""
     chromadb_status = "ok"
     ollama_status = "ok"
 
@@ -163,13 +176,24 @@ def health_check():
         chromadb_status = "unavailable"
 
     try:
-        ollama.list()
+        result = ollama_client.list()
+
+        # Confirm that the configured model is available.
+        model_names = {
+            model.model
+            for model in result.models
+        }
+
+        if MODEL_NAME not in model_names:
+            ollama_status = "model_missing"
+
     except Exception:
         ollama_status = "unavailable"
 
     overall_status = (
         "ok"
-        if chromadb_status == "ok" and ollama_status == "ok"
+        if chromadb_status == "ok"
+        and ollama_status == "ok"
         else "degraded"
     )
 
@@ -179,16 +203,6 @@ def health_check():
         status=overall_status,
     )
 
-
-@app.get("/stats", response_model=StatsResponse)
-def get_stats():
-    """Return basic information about the RAG collection."""
-    collection = get_rag_collection()
-
-    return StatsResponse(
-        document_count=collection.count(),
-        model=MODEL_NAME,
-    )
 
 
 @app.post("/ingest", response_model=IngestResponse)
