@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from pydantic import BaseModel, Field, field_validator
 
+from config import get_settings
 
 from my_rag import (
     MODEL_NAME,
@@ -90,20 +91,21 @@ def get_rag_collection():
     return get_collection()
 
 
+settings = get_settings
+
 def calculate_confidence(retrieved_chunks: list[dict]) -> str:
     """Determine confidence from the best retrieved distance."""
     if not retrieved_chunks:
         return "low"
 
     best_distance = min(
-        chunk["distance"]
-        for chunk in retrieved_chunks
+        chunk["distance"] for chunk in retrieved_chunks
     )
 
     if best_distance < 0.5:
         return "high"
 
-    if best_distance < 1.0:
+    if best_distance < settings.CONFIDENCE_THRESHOLD:
         return "medium"
 
     return "low"
@@ -121,7 +123,7 @@ def generate_api_answer(
 
     try:
         response_stream = ollama_client.chat(
-            model=MODEL_NAME,
+            model=settings.model_name,
             messages=[
                 {
                     "role": "system",

@@ -2,9 +2,9 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from my_rag_api import app
+import my_rag_api
 
-
+app = my_rag_api.app
 client = TestClient(app)
 
 
@@ -61,12 +61,16 @@ def test_ingest():
 
 
 def test_ask_returns_structured_response():
-    response = client.post(
-        "/ask",
-        json={"question": "What is a docstring?"},
-    )
+    with patch(
+        "my_rag_api.generate_api_answer",
+        return_value="A docstring documents a module, class, or function.",
+    ):
+        response = client.post(
+            "/ask",
+            json={"question": "What is a docstring?"},
+        )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
 
     data = response.json()
 
@@ -75,13 +79,14 @@ def test_ask_returns_structured_response():
     assert "confidence" in data
     assert "chunks_retrieved" in data
 
+    assert isinstance(data["answer"], str)
     assert isinstance(data["sources"], list)
     assert data["chunks_retrieved"] > 0
 
 
 def test_ollama_unavailable_returns_503():
     with patch(
-        "my_rag_api.ollama.chat",
+        "my_rag_api.ollama_client.chat",
         side_effect=Exception("Ollama unavailable"),
     ):
         response = client.post(
@@ -90,24 +95,3 @@ def test_ollama_unavailable_returns_503():
         )
 
     assert response.status_code == 503
-
-    def test_ask_with_no_documents_returns_503():
-        mock_collection = type(
-            "MockCollection",
-            (),
-            {
-                "count": lambda self: 0,
-            },
-        )()
-
-        with patch(
-            "my_rag_api.get_rag_collection",
-            return_value=mock_collection,
-        ):
-            response = client.post(
-                "/ask",
-                json={"question": "What is a docstring?"},
-            )
-
-        assert response.status_code == 503
-        assert "No documents have been ingested" in response.json()["detail"]

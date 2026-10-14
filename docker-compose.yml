@@ -7,9 +7,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    environment:
-      OLLAMA_URL: http://ollama:11434
-      MODEL_NAME: llama3.2:latest
+    env_file:
+      - .env
     depends_on:
       ollama:
         condition: service_healthy

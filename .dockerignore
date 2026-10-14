@@ -3,7 +3,15 @@ __pycache__/
 venv/
 .venv/
 .git/
-.env
+
+
 chroma_data/
 chroma_db/
 .pytest_cache/
+
+.env
+.env.*
+!.env.example
+
+
+

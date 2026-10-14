@@ -1,17 +1,25 @@
 import chromadb
+
 import ollama
-import os
+
 from pathlib import Path
 
+from config import get_settings
+
 # Application configuration
+
+settings = get_settings()
+
 DOCS_DIR = Path("docs")
-DB_PATH = "chroma_db"
+DB_PATH = str(settings.CHROMA_PATH)
 COLLECTION_NAME = "pep_documents"
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-MODEL_NAME = os.getenv("MODEL_NAME", "llama3.2:latest")
-TOP_K = 3
-DISTANCE_THRESHOLD = 1.0
-ollama_client = ollama.Client(host=OLLAMA_URL)
+
+OLLAMA_URL = settings.OLLAMA_URL
+MODEL_NAME = settings.MODEL_NAME
+TOP_K = settings.MAX_RESULTS
+DISTANCE_THRESHOLD = settings.CONFIDENCE_THRESHOLD
+
+ollama_client = ollama.Client(host=settings.OLLAMA_URL)
 
 def load_document(path: Path) -> str:
     """Read a UTF-8 text document from disk."""
