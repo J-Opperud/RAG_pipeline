@@ -91,7 +91,7 @@ def get_rag_collection():
     return get_collection()
 
 
-settings = get_settings
+settings = get_settings()
 
 def calculate_confidence(retrieved_chunks: list[dict]) -> str:
     """Determine confidence from the best retrieved distance."""
