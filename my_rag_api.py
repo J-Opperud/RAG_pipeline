@@ -24,8 +24,12 @@ app = FastAPI(
     description="A FastAPI interface for the Python PEP RAG assistant.",
     version="1.0.0",
 )
+@app.get("/")
+def root():
+    """Return basic API information."""
+    return {"message": "PEP RAG API"}
 
-# Allow a future frontend to make requests to this API.
+# Allow a  frontend to make requests to this API.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

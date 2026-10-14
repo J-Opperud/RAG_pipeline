@@ -1,0 +1,52 @@
+
+name: RAG Pipeline CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run Python tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install httpx pytest
+
+      - name: Run tests
+        run: python -m pytest -q
+
+  docker:
+    name: Build Docker images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -f Dockerfile -t rag-pipeline-backend:ci .
+
+      - name: Build frontend image
+        run: docker build -f frontend/Dockerfile -t rag-pipeline-frontend:ci ./frontend
+
+      - name: Verify images exist
+        run: |
+          docker image inspect rag-pipeline-backend:ci
+          docker image inspect rag-pipeline-frontend:ci
