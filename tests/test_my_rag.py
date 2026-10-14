@@ -2,9 +2,10 @@ from pathlib import Path
 
 import pytest
 
+import my_rag
+
 from my_rag import (
-    COLLECTION_NAME,
-    DB_PATH,
+
     DOCS_DIR,
     TOP_K,
     chunk_by_paragraph,
@@ -168,8 +169,9 @@ def test_build_rag_prompt_rejects_missing_context():
     ):
         build_rag_prompt("What is Python?", [])
 
-def test_generate_answer():
-    """Ollama should generate an answer from retrieved context."""
+
+def test_generate_answer(monkeypatch):
+    """Generate an answer from a mocked Ollama response."""
     chunks = [
         {
             "source": "pep8.txt",
@@ -177,11 +179,22 @@ def test_generate_answer():
         }
     ]
 
+    def mock_chat(**kwargs):
+        """Simulate Ollama streaming two response tokens."""
+        assert kwargs["stream"] is True
+
+        return iter([
+            {"message": {"content": "Python "}},
+            {"message": {"content": "uses snake_case."}},
+        ])
+
+    monkeypatch.setattr(my_rag.ollama_client, "chat", mock_chat)
+
     answer = generate_answer(
         "What convention do Python variable names follow?",
         chunks,
     )
 
-    assert isinstance(answer, str)
-    assert answer.strip()
+    assert answer == "Python uses snake_case."
+
 

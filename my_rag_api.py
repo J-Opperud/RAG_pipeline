@@ -111,6 +111,7 @@ def calculate_confidence(retrieved_chunks: list[dict]) -> str:
     return "low"
 
 
+
 def generate_api_answer(
     question: str,
     retrieved_chunks: list[dict],
@@ -122,8 +123,8 @@ def generate_api_answer(
     )
 
     try:
-        response_stream = ollama_client.chat(
-            model=settings.model_name,
+        response = ollama_client.chat(
+            model=settings.MODEL_NAME,
             messages=[
                 {
                     "role": "system",
@@ -134,7 +135,7 @@ def generate_api_answer(
                     "content": prompt,
                 },
             ],
-            stream=True,
+            stream=False,
         )
     except Exception as exc:
         raise HTTPException(
@@ -145,14 +146,8 @@ def generate_api_answer(
             ),
         ) from exc
 
-    answer_parts = []
+    return response.message.content.strip()
 
-    for response in response_stream:
-        answer_parts.append(
-            response["message"]["content"]
-        )
-
-    return "".join(answer_parts).strip()
 
 
 @app.get("/stats", response_model=StatsResponse)
