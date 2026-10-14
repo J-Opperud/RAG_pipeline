@@ -1,7 +1,7 @@
 from pathlib import Path
 from urllib.request import urlopen
 
-DOCS_DIR = Path("docs")
+DOCS_DIR = Path(__file__).resolve().parent / "docs"
 
 PEPS = {
     "pep8.txt": "https://raw.githubusercontent.com/python/peps/main/peps/pep-0008.rst",

@@ -2,9 +2,9 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-import my_rag_api
+import main
 
-app = my_rag_api.app
+app = main.app
 client = TestClient(app)
 
 
@@ -69,7 +69,7 @@ def test_ingest():
 
 def test_ask_returns_structured_response():
     with patch(
-        "my_rag_api.generate_api_answer",
+        "main.generate_api_answer",
         return_value="A docstring documents a module, class, or function.",
     ):
         response = client.post(
@@ -93,7 +93,7 @@ def test_ask_returns_structured_response():
 
 def test_ollama_unavailable_returns_503():
     with patch(
-        "my_rag_api.ollama_client.chat",
+        "main.ollama_client.chat",
         side_effect=Exception("Ollama unavailable"),
     ):
         response = client.post(

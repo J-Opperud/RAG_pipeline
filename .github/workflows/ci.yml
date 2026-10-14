@@ -1,4 +1,5 @@
 
+
 name: RAG Pipeline CI
 
 on:
@@ -21,16 +22,16 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r backend/requirements.txt
           pip install httpx pytest
 
       - name: Run tests
-        run: python -m pytest -q
+        run: PYTHONPATH=backend python -m pytest backend/tests -q
 
   docker:
     name: Build Docker images
@@ -41,7 +42,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build backend image
-        run: docker build -f Dockerfile -t rag-pipeline-backend:ci .
+        run: docker build -f backend/Dockerfile -t rag-pipeline-backend:ci ./backend
 
       - name: Build frontend image
         run: docker build -f frontend/Dockerfile -t rag-pipeline-frontend:ci ./frontend

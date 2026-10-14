@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from config import get_settings
 
-from my_rag import (
+from rag import (
     MODEL_NAME,
     get_collection,
     ingest_documents,

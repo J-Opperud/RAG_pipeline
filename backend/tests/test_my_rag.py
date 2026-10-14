@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-import my_rag
+import rag
 
-from my_rag import (
+from rag import (
 
     DOCS_DIR,
     TOP_K,
@@ -188,7 +188,7 @@ def test_generate_answer(monkeypatch):
             {"message": {"content": "uses snake_case."}},
         ])
 
-    monkeypatch.setattr(my_rag.ollama_client, "chat", mock_chat)
+    monkeypatch.setattr(rag.ollama_client, "chat", mock_chat)
 
     answer = generate_answer(
         "What convention do Python variable names follow?",

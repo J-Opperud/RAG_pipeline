@@ -3,7 +3,7 @@ from pathlib import Path
 import chromadb
 
 
-DOCS_DIR = Path("docs")
+DOCS_DIR = Path(__file__).resolve().parent / "docs"
 DB_PATH = "chroma_db"
 COLLECTION_NAME = "pep_documents"
 

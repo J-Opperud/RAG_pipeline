@@ -10,7 +10,7 @@ from config import get_settings
 
 settings = get_settings()
 
-DOCS_DIR = Path("docs")
+DOCS_DIR = Path(__file__).resolve().parent / "docs"
 DB_PATH = str(settings.CHROMA_PATH)
 COLLECTION_NAME = "pep_documents"
 
