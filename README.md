@@ -1,256 +1,321 @@
-RAG Pipeline
+# RAG Pipeline
 
-## Overview
+A local Retrieval-Augmented Generation (RAG) application built with **FastAPI, Streamlit, ChromaDB, and Ollama**.
 
-A local Retrieval-Augmented Generation (RAG) pipeline built with Python, ChromaDB, and Ollama.
+The application retrieves relevant passages from a collection of six Python Enhancement Proposals (PEPs) and uses a locally hosted language model to generate answers grounded in the retrieved documents. Users can inspect source references and confidence information alongside generated responses.
 
-The project uses six Python Enhancement Proposals (PEPs) as its document collection. Documents are loaded, split into paragraph-based chunks, stored in persistent ChromaDB, retrieved by semantic similarity, and passed to a local Ollama model for grounded answers.
+The project emphasizes modular design, input validation, source transparency, automated testing, and responsible handling of questions that fall outside the available evidence.
 
+## Features
 
+- Semantic document retrieval using ChromaDB
+- Persistent vector database storage
+- Local language-model inference through Ollama
+- Interactive Streamlit web interface
+- FastAPI backend with request and response validation
+- Streaming answers through Server-Sent Events (SSE)
+- Source references and retrieval-confidence indicators
+- Document ingestion through the API
+- Health and statistics endpoints
+- Input validation and readable error responses
+- Docker Compose service orchestration
+- Automated pytest coverage
 
-The application displays the retrieved chunks before the generated answer so the source material can be inspected.
-Features
+## Architecture
 
-    Six local PEP documents
-    Paragraph-based document chunking
-    Persistent ChromaDB storage
-    Top-3 semantic retrieval
-    Source-aware RAG prompts
-    Grounded-answer instructions
-    Streaming Ollama responses
-    Graceful Ollama connection errors
-    Input validation
-    Interactive CLI
-    quit command
-    Automated pytest coverage
+The application consists of three services:
 
-## Arch.
-Documents
-    ↓
-Load and chunk
-    ↓
-Persistent ChromaDB
-    ↓
-Retrieve top 3 chunks
-    ↓
-Build RAG prompt
-    ↓
-Ollama
-    ↓
-Stream answer
+- **Frontend:** Streamlit interface for asking questions, viewing responses, and inspecting source information.
+- **Backend:** FastAPI service responsible for ingestion, retrieval, answer generation, and API validation.
+- **Ollama:** Local model-serving service used to generate answers from retrieved context.
 
-## Design
+### Request flow
 
-The pipeline is divided into focused functions:
+```mermaid
+flowchart TD
+    A[User] --> B[Streamlit Frontend]
+    B --> C[FastAPI Backend]
+    C --> D[ChromaDB]
+    D --> E[Relevant Document Chunks]
+    E --> F[Grounded RAG Prompt]
+    F --> G[Ollama Language Model]
+    G --> H[Streaming Answer]
+    H --> B
+    B --> I[Answer, Sources, Confidence]
+```
 
-load_document()
-chunk_by_paragraph()
-get_collection()
-ingest_document()
-ingest_documents()
-retrieve()
-build_rag_prompt()
-generate_answer()
-display_retrieved_chunks()
-run_interactive()
+Docker Compose manages the services and their network connections. Named volumes preserve the vector database and Ollama model data across container restarts.
 
-This keeps responsibilities separate and makes individual components easier to test and debug.
+## Technology Stack
 
-The project intentionally avoids unnecessary complexity while still addressing common validation and failure cases.
+| Component | Purpose |
+|---|---|
+| Python | Application implementation |
+| FastAPI | Backend API |
+| Streamlit | Interactive user interface |
+| ChromaDB | Persistent vector storage and retrieval |
+| Ollama | Local language-model inference |
+| Pydantic Settings | Configuration validation |
+| pytest | Automated testing |
+| Docker Compose | Multi-service deployment |
 
 ## Project Structure
 
+```text
 rag-pipeline/
+├── backend/
+│   ├── Dockerfile
+│   ├── config.py
+│   ├── download_docs.py
+│   ├── ingest.py
+│   ├── main.py
+│   ├── rag.py
+│   └── requirements.txt
+├── frontend/
+│   ├── Dockerfile
+│   ├── app.py
+│   └── requirements.txt
 ├── docs/
+│   ├── pep8.txt
 │   ├── pep20.txt
 │   ├── pep257.txt
 │   ├── pep484.txt
 │   ├── pep526.txt
-│   ├── pep585.txt
-│   └── pep8.txt
-│
-├── chroma_db/
+│   └── pep585.txt
 ├── tests/
-│    ├── test_chroma.py
-|    ├── test_chunks.py
-|    ├── test_ollama.py
-|    ├──test_retreval.py
-|    └── test_my_rag.py
-|
-├── download_docs.py
-├── ingest.py
-├── my_rag.py
-├── test_chroma.py
-├── test_chunks.py
-├── test_ollama.py
-├── test_retrieval.py
+├── .env.example
+├── .gitignore
+├── docker-compose.yml
 └── README.md
+```
 
-## Requirements
+## Prerequisites
 
-    Python 3
-    ChromaDB
-    Ollama
-    pytest
-    llama3.2:latest
+Install the following before running the application:
 
-Install the Python dependencies:
+- Docker Desktop or Docker Engine with the Docker Compose plugin
+- Git, if cloning the repository
+- Sufficient disk space for Docker images, the local language model, and the vector database
 
-pip install -r requirements.txt
+A separate host installation of Python or Ollama is not required to run the complete Docker Compose application. Python is required if you want to run tests locally.
 
-Verify Ollama and the model:
+## Setup and Installation
 
-ollama list
+### 1. Clone the repository
 
-The project currently uses:
+```bash
+git clone <your-repository-url>
+cd rag-pipeline
+```
 
-llama3.2:latest
+Replace the placeholder with the actual repository URL.
 
-## Running the Application
+### 2. Create the environment file
 
-From the project root:
+Copy the example configuration:
 
-python my_rag.py
+```bash
+cp .env.example .env
+```
 
-The application starts an interactive question loop:
+The default configuration is:
 
-RAG assistant ready.
-Ask a question about PEP coding style and terminology guidelines.
-Type 'quit' to exit.
+```dotenv
+OLLAMA_URL=http://ollama:11434
+MODEL_NAME=llama3.2:latest
 
-For each question, the application:
+CHROMA_PATH=./chroma_db
+MAX_RESULTS=3
+CONFIDENCE_THRESHOLD=1.0
+DEBUG=false
+```
 
-    Retrieves the three most relevant chunks.
-    Displays the retrieved sources.
-    Builds a prompt using the retrieved context.
-    Sends the prompt to Ollama.
-    Streams the answer to the terminal.
+The service URL uses `ollama` because Docker Compose provides service-name-based networking.
+
+The default retrieval configuration requests three results. The confidence threshold controls the application's confidence classification; it does not guarantee that a generated answer is correct.
+
+### 3. Build and start the services
+
+```bash
+docker compose up --build -d
+```
+
+Check service status:
+
+```bash
+docker compose ps
+```
+
+Check the service logs if needed:
+
+```bash
+docker compose logs -f backend
+```
+
+### 4. Download the Ollama model
+
+Pull the configured model into the Ollama container:
+
+```bash
+docker compose exec ollama ollama pull llama3.2:latest
+```
+
+If the Ollama container is still starting, wait for it to become healthy before pulling the model.
+
+The model must be available locally to Ollama before the application can generate answers.
+
+### 5. Open the application
+
+- **Streamlit frontend:** http://localhost:8501
+- **FastAPI Swagger UI:** http://localhost:8000/docs
+- **API root:** http://localhost:8000/
+
+## Using the Application
+
+1. Open the Streamlit frontend.
+2. Check the displayed service health and document statistics.
+3. Ingest the documents if the collection is empty.
+4. Ask a question about the indexed PEP documents.
+5. Review the generated answer, source references, and confidence information.
+
+The frontend consumes the streaming API so that answer text can appear while generation is in progress. Retrieved source metadata is displayed with the completed response.
+
+### Document ingestion
+
+The backend provides a document-ingestion endpoint that loads supported documents from the configured `docs/` directory into ChromaDB.
+
+If the collection has not been populated, use the application's ingestion control or the API's `POST /ingest` endpoint.
+
+## API Reference
+
+Interactive request and response schemas are available at `/docs`.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/` | API root |
+| GET | `/health` | Check ChromaDB and Ollama availability |
+| GET | `/stats` | Return document statistics and configured model information |
+| POST | `/ingest` | Ingest documents into ChromaDB |
+| POST | `/ask` | Generate a non-streaming answer |
+| POST | `/ask/stream` | Stream a generated answer and return response metadata |
+
+### Streaming responses
+
+`POST /ask/stream` returns a streaming response using Server-Sent Events (SSE). The frontend consumes the stream incrementally and handles answer text and final response metadata.
+
+The non-streaming `POST /ask` endpoint remains available for clients that prefer a standard response.
+
+### Error handling
+
+The API includes validation and error handling for cases such as:
+
+- Invalid or empty questions
+- Missing document context
+- Unavailable Ollama service
+- Invalid configuration
+- Document ingestion failures
+
+Consult the interactive API documentation for the exact request schemas and response formats.
 
 ## Testing
 
-Run the complete test suite:
+Run the automated test suite from the repository root:
 
-python -m pytest
+```bash
+PYTHONPATH=backend python -m pytest backend/tests -q
+```
 
-The test suite covers:
+The project has previously completed a run with **27 passing tests and 2 warnings**. Run the tests again against the final committed version before reporting a final result.
 
-    Document loading
-    Paragraph chunking
-    Empty document handling
-    ChromaDB ingestion
-    Duplicate prevention
-    Retrieval
-    Input validation
-    RAG prompt construction
-    Ollama generation
+The tests cover application behavior such as retrieval, prompt construction, API validation, and error handling.
 
-Current result:
+## Grounding and Evaluation
 
-13 passed
+The application is designed to answer questions using retrieved document evidence rather than treating the language model as an unrestricted general-purpose assistant.
 
-RAG Test Results
+The system prompt instructs the model to:
 
-The application was tested with three required query types.
-1. Answerable
+- Use the retrieved context to answer questions.
+- Avoid inventing unsupported information.
+- Cite relevant source filenames.
+- Distinguish explicit statements from inferences.
+- Acknowledge when the retrieved documents do not support an answer.
 
-Question:
+### Example checks
 
-What is a docstring?
+**Answerable question**
 
-The system retrieved relevant PEP 257 content and generated a grounded answer.
+Question: What naming convention does PEP 8 recommend for class names?
 
-Result: PASS
-2. Related but not directly documented
+Expected behavior: Provide the CapWords convention and cite the relevant PEP source.
 
-Question:
+**Unsupported question**
 
-How should I structure a Python virtual environment?
+Question: What does my private company's internal coding policy require?
 
-The system retrieved Python-related content but recognized that the documents did not provide enough information to answer the question.
+Expected behavior: Acknowledge that the answer is not available in the provided documents.
 
-Result: PASS
-3. Outside the document scope
+These checks demonstrate the intended behavior of the grounding prompt. They are illustrative examples, not proof that every generated answer will be correct.
 
-Question:
+## Design Decisions
 
-What is the capital of France?
+### Local inference
 
-The system retrieved unrelated chunks but correctly recognized that the context did not contain information about geography.
+Ollama allows the model to run locally rather than requiring a hosted language-model API for generation.
 
-Result: PASS
+### Separation of responsibilities
 
-These tests demonstrate an important RAG behavior: retrieval may return the closest available documents even when they are not actually relevant. The generation step must still determine whether the retrieved context supports an answer.
-Streaming
+The frontend, backend, retrieval logic, and model service have distinct responsibilities. This makes individual components easier to maintain and troubleshoot.
 
-Ollama responses are streamed to the terminal as they are generated rather than waiting for the complete response.
+### Evidence over assumptions
 
-This provides immediate visual feedback while the model is generating its answer.
-Error Handling
+The system prompt emphasizes source attribution and explicitly discourages unsupported claims. Retrieval confidence and source references help users inspect the evidence behind a response.
 
-The project uses lightweight validation appropriate for the assignment:
+### Controlled scope
 
-    Empty questions are rejected.
-    Invalid retrieval parameters are rejected.
-    Empty documents do not produce chunks.
-    Missing RAG context is rejected.
-    Ollama connection failures produce a readable error.
-    The interactive loop continues after invalid input.
-    quit exits the application cleanly.
+The corpus is intentionally limited to six Python Enhancement Proposals. The application is a document-grounded RAG demonstration, not a complete Python tutor or a general-purpose knowledge system.
 
-FastAPI RAG API
+## Limitations
 
-The RAG pipeline is also available as a FastAPI service with Swagger UI for testing.
-Endpoints
+- Answers depend on the contents and quality of the indexed documents.
+- Semantic retrieval can return related but insufficiently relevant passages.
+- Confidence indicators are application-level heuristics, not calibrated probabilities of factual correctness.
+- A grounding prompt reduces unsupported responses but cannot eliminate hallucinations.
+- Local model speed and answer quality depend on available hardware and the selected model.
+- The current corpus is limited to the included PEP documents.
 
-    POST /ask — Ask a question and receive a grounded answer with sources, confidence, and retrieved chunk count.
-    POST /ingest — Ingest documents from the docs/ directory into ChromaDB.
-    GET /stats — Return the current document count and Ollama model.
-    GET /health — Check ChromaDB and Ollama availability.
+## Future Improvements
 
-## Run the API
+Potential next steps include:
 
-uvicorn my_rag_api:app --reload
+- Expanding document coverage with controlled ingestion
+- Improving retrieval evaluation with a labeled question set
+- Comparing retrieval and chunking configurations systematically
+- Adding more robust source-level relevance checks
+- Improving monitoring and diagnostics
+- Expanding automated tests for streaming and failure cases
 
-Open Swagger UI at:
+## Stopping and Restarting
 
-http://127.0.0.1:8000/docs
+Stop the services:
 
-## API Features
+```bash
+docker compose down
+```
 
-    Pydantic request and response validation
-    CORS middleware for frontend connectivity
-    Distance-based retrieval and confidence levels
-    Structured JSON responses
-    422 validation errors for invalid questions
-    503 responses when Ollama is unavailable or documents have not been ingested
-    Automated API tests with Pytest
+Start them again:
 
-### Docker
+```bash
+docker compose up -d
+```
 
-The image uses Python 3.11 slim and installs dependencies from requirements.txt. Docker layer caching allows dependency installation to be reused when application code changes.
+Named Docker volumes preserve ChromaDB and Ollama data when the containers are stopped and recreated.
 
-## Run the API
+To remove the containers and persistent volumes as well:
 
-Start the container and connect it to Ollama running on the host:
+```bash
+docker compose down -v
+```
 
-docker run --rm \
-  --name my-rag-api-container \
-  -p 8000:8000 \
-  -e OLLAMA_HOST=http://host.docker.internal:11434 \
-  my-rag-api
-
-Ensure Ollama is running and the llama3.2:latest model is available.
-
-## Access the API
-
-Open Swagger UI in your browser:
-
-http://localhost:8000/docs
-
-
-## Notes
-
-    .dockerignore excludes Python caches, virtual environments, Git files, environment files, and local ChromaDB data from the build context.
-    ChromaDB data persistence depends on the application's configuration and container storage setup.
-    Docker layer caching keeps dependency installation fast when requirements.txt remains unchanged.
+**Warning:** The `-v` option deletes the Compose-managed persistent data, including the local database and Ollama model storage.
 
