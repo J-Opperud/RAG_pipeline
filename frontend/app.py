@@ -1,15 +1,17 @@
 import os
 
 import requests
+
 import streamlit as st
 
+import json
 
 API_URL = os.getenv("API_URL", "http://localhost:8000").rstrip("/")
 REQUEST_TIMEOUT = 180
 
 st.set_page_config(
-    page_title="PEP RAG Assistant",
-    page_icon="📚",
+    page_title="PEP Assistant",
+    page_icon="ðŸ“š",
     layout="wide",
 )
 
@@ -33,7 +35,7 @@ def api_post(endpoint, payload=None, timeout=30):
     return response.json()
 
 
-st.title("📚 PEP RAG Assistant")
+st.title("ðŸ“š PEP RAG Assistant")
 st.caption("Ask questions about Python Enhancement Proposals using retrieved documents.")
 
 # Sidebar: system health and collection statistics.
@@ -88,52 +90,17 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # Process a submitted question before rendering the conversation.
+
 question = st.chat_input("Ask a question about Python PEPs...")
 
-if question:
-    st.session_state.messages.append(
-        {"role": "user", "content": question}
-    )
-
-    with st.spinner("Searching documents and generating an answer..."):
-        try:
-            result = api_post(
-                "/ask",
-                {"question": question},
-                timeout=REQUEST_TIMEOUT,
-            )
-
-            st.session_state.messages.append(
-                {
-                    "role": "assistant",
-                    "content": result["answer"],
-                    "sources": result["sources"],
-                    "confidence": result["confidence"],
-                    "chunks_retrieved": result["chunks_retrieved"],
-                }
-            )
-
-        except requests.RequestException as exc:
-            st.session_state.messages.append(
-                {
-                    "role": "assistant",
-                    "content": f"Unable to get an answer from the API: {exc}",
-                    "sources": [],
-                    "confidence": "unavailable",
-                    "chunks_retrieved": 0,
-                }
-            )
-
-    st.rerun()
-
-# Render conversation history.
+# Display previous conversation messages.
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
         if message["role"] == "assistant" and "sources" in message:
             st.caption(
-                f"Confidence: {message['confidence']} · "
+                f"Confidence: {message['confidence']} Â· "
                 f"Chunks retrieved: {message['chunks_retrieved']}"
             )
 
@@ -141,3 +108,86 @@ for message in st.session_state.messages:
                 with st.expander("Sources"):
                     for source in message["sources"]:
                         st.write(f"- {source}")
+
+if question:
+    st.session_state.messages.append(
+        {"role": "user", "content": question}
+    )
+
+    with st.chat_message("user"):
+        st.markdown(question)
+
+    with st.chat_message("assistant"):
+        answer_placeholder = st.empty()
+        answer = ""
+        metadata = {}
+        error_message = None
+
+        try:
+            with requests.post(
+                f"{API_URL}/ask/stream",
+                json={"question": question},
+                stream=True,
+                timeout=(10, REQUEST_TIMEOUT),
+            ) as response:
+                response.raise_for_status()
+
+                for line in response.iter_lines(chunk_size=1, decode_unicode=True):
+                    if not line or not line.startswith("data: "):
+                        continue
+
+                    event = json.loads(line[6:])
+
+                    if event["type"] == "chunk":
+                        answer += event["content"]
+                        answer_placeholder.markdown(answer + " â–Œ")
+
+                    elif event["type"] == "done":
+                        metadata = event
+
+                    elif event["type"] == "error":
+                        error_message = event["message"]
+                        break
+
+
+        except (requests.RequestException, ValueError) as exc:
+            error_message = f"Unable to get an answer from the API: {exc}"
+
+        if error_message:
+            answer_placeholder.error(error_message)
+        else:
+            answer_placeholder.markdown(answer)
+
+            st.caption(
+                f"Confidence: {metadata.get('confidence', 'unavailable')} Â· "
+                f"Chunks retrieved: {metadata.get('chunks_retrieved', 0)}"
+            )
+
+            sources = metadata.get("sources", [])
+            if sources:
+                with st.expander("Sources"):
+                    for source in sources:
+                        st.write(f"- {source}")
+
+
+
+    if error_message:
+        st.session_state.messages.append(
+            {
+                "role": "assistant",
+                "content": error_message,
+                "sources": [],
+                "confidence": "unavailable",
+                "chunks_retrieved": 0,
+            }
+        )
+    else:
+        st.session_state.messages.append(
+            {
+                "role": "assistant",
+                "content": answer,
+                "sources": metadata.get("sources", []),
+                "confidence": metadata.get("confidence", "unavailable"),
+                "chunks_retrieved": metadata.get("chunks_retrieved", 0),
+            }
+        )

@@ -1,4 +1,9 @@
+import json
+
 from fastapi import FastAPI, HTTPException
+
+from fastapi.responses import StreamingResponse
+
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -269,3 +274,94 @@ def ask(request: AskRequest):
         chunks_retrieved=len(retrieved_chunks),
     )
 
+
+def stream_api_answer(
+    question: str,
+    retrieved_chunks: list[dict],
+):
+    """Yield answer text from Ollama as it is generated."""
+    prompt = build_rag_prompt(question, retrieved_chunks)
+
+    try:
+        response_stream = ollama_client.chat(
+            model=settings.MODEL_NAME,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            stream=True,
+        )
+
+        for chunk in response_stream:
+            content = chunk.message.content
+
+            if content:
+                event = {
+                    "type": "chunk",
+                    "content": content,
+                }
+                yield f"data: {json.dumps(event)}\n\n"
+
+        sources = sorted({
+            chunk["source"] for chunk in retrieved_chunks
+        })
+
+        metadata = {
+            "type": "done",
+            "sources": sources,
+            "confidence": calculate_confidence(retrieved_chunks),
+            "chunks_retrieved": len(retrieved_chunks),
+        }
+        yield f"data: {json.dumps(metadata)}\n\n"
+
+    except Exception:
+        error = {
+            "type": "error",
+            "message": "Answer generation failed. Check that Ollama is running and the configured model is available.",
+        }
+        yield f"data: {json.dumps(error)}\n\n"
+
+
+@app.post("/ask/stream")
+def ask_stream(request: AskRequest):
+    """Stream a RAG answer and send metadata when generation finishes."""
+    collection = get_rag_collection()
+
+    if collection.count() == 0:
+        raise HTTPException(
+            status_code=503,
+            detail="No documents have been ingested. Call POST /ingest first.",
+        )
+
+    retrieved_chunks = retrieve(collection, request.question)
+
+    if not retrieved_chunks:
+
+        def no_results():
+            event = {
+                "type": "chunk",
+                "content": "I don't know based on the provided documents.",
+            }
+            yield f"data: {json.dumps(event)}\n\n"
+
+            metadata = {
+                "type": "done",
+                "sources": [],
+                "confidence": "low",
+                "chunks_retrieved": 0,
+            }
+            yield f"data: {json.dumps(metadata)}\n\n"
+
+        return StreamingResponse(
+            no_results(),
+            media_type="text/event-stream",
+        )
+
+    return StreamingResponse(
+        stream_api_answer(request.question, retrieved_chunks),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
